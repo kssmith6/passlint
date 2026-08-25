@@ -1,22 +1,40 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
 )
 
 func main() {
-	args := os.Args[1:]
+	var wordlistPath string
+	flag.StringVar(&wordlistPath, "wordlist", "", "path to an external common-password wordlist, one entry per line")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: passlint [-wordlist file] <file> [file...]")
+		fmt.Fprintln(os.Stderr, "       passlint [-wordlist file] -    (read from stdin)")
+	}
+	flag.Parse()
+
+	args := flag.Args()
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: passlint <file> [file...]")
-		fmt.Fprintln(os.Stderr, "       passlint -    (read from stdin)")
+		flag.Usage()
 		os.Exit(2)
+	}
+
+	rules := DefaultRules
+	if wordlistPath != "" {
+		var err error
+		rules, err = RulesWithWordlist(wordlistPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "passlint: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	anyFindings := false
 	for _, path := range args {
-		n, err := lintPath(path)
+		n, err := lintPath(path, rules)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "passlint: %s: %v\n", path, err)
 			os.Exit(1)
@@ -31,7 +49,7 @@ func main() {
 	}
 }
 
-func lintPath(path string) (int, error) {
+func lintPath(path string, rules []rule) (int, error) {
 	var r io.Reader
 	label := path
 
@@ -48,7 +66,7 @@ func lintPath(path string) (int, error) {
 	}
 
 	count := 0
-	err := Lint(r, DefaultRules, func(f Finding) {
+	err := Lint(r, rules, func(f Finding) {
 		count++
 		fmt.Printf("%s:%d: %s [%s]\n", label, f.Line, f.Message, f.Rule)
 	})

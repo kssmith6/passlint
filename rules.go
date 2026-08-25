@@ -12,8 +12,8 @@ import (
 const minPasswordLength = 8
 
 // commonPasswords is a small seed list of passwords that show up at the top
-// of nearly every public breach corpus. It is intentionally short for now;
-// swapping it for a real wordlist loaded from disk is on the roadmap.
+// of nearly every public breach corpus. It always applies; pass -wordlist to
+// extend it with a larger list without editing the binary.
 var commonPasswords = map[string]struct{}{
 	"password": {}, "123456": {}, "123456789": {}, "qwerty": {},
 	"letmein": {}, "admin": {}, "welcome": {}, "monkey": {},
@@ -27,7 +27,7 @@ var commonPasswords = map[string]struct{}{
 var DefaultRules = []rule{
 	{name: "min-length", check: hasMinLength},
 	{name: "char-variety", check: hasLowVariety},
-	{name: "common-password", check: isCommonPassword},
+	commonPasswordRule(nil),
 	{name: "repeated-run", check: hasRepeatedRun},
 	{name: "sequential-run", check: hasSequentialRun},
 }
@@ -67,11 +67,40 @@ func hasLowVariety(pw string) (bool, string) {
 	return false, ""
 }
 
-func isCommonPassword(pw string) (bool, string) {
-	if _, ok := commonPasswords[strings.ToLower(pw)]; ok {
-		return true, "matches a well-known common password"
+// commonPasswordRule builds the common-password check against the built-in
+// list plus, if given, an external wordlist loaded at startup.
+func commonPasswordRule(extra map[string]struct{}) rule {
+	return rule{
+		name: "common-password",
+		check: func(pw string) (bool, string) {
+			key := strings.ToLower(pw)
+			if _, ok := commonPasswords[key]; ok {
+				return true, "matches a well-known common password"
+			}
+			if _, ok := extra[key]; ok {
+				return true, "matches an entry in the wordlist"
+			}
+			return false, ""
+		},
 	}
-	return false, ""
+}
+
+// RulesWithWordlist returns DefaultRules with the common-password check
+// extended by the entries in the wordlist at path, one password per line.
+func RulesWithWordlist(path string) ([]rule, error) {
+	extra, err := loadWordlist(path)
+	if err != nil {
+		return nil, err
+	}
+
+	rules := make([]rule, len(DefaultRules))
+	copy(rules, DefaultRules)
+	for i, ru := range rules {
+		if ru.name == "common-password" {
+			rules[i] = commonPasswordRule(extra)
+		}
+	}
+	return rules, nil
 }
 
 // hasRepeatedRun flags three or more identical characters in a row, e.g.

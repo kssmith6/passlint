@@ -41,6 +41,20 @@ a CI job.
 - `repeated-run` — the same character three or more times in a row.
 - `sequential-run` — an ascending or descending run like `abc` or `123`.
 
+## Wordlists
+
+The built-in `common-password` list is deliberately small. Point `-wordlist`
+at a larger one, one password per line, to extend it without touching the
+binary:
+
+```
+$ ./passlint -wordlist rockyou-top-10k.txt leaked-list.txt
+```
+
+Blank lines and lines starting with `#` are skipped, and the file is read
+the same way the input list is — line by line, so a large wordlist doesn't
+get loaded into memory all at once either.
+
 ## Design note
 
 `Lint` reads its input with a `bufio.Scanner`, one line at a time, and calls
@@ -52,8 +66,9 @@ without blowing up memory.
 
 ## Status
 
-Early. The rule set is small and the common-password list is a stub of
-maybe twenty entries, not a real wordlist. See the roadmap in the repo
+Early. The rule set is small and the built-in common-password list is a
+stub of maybe twenty entries; `-wordlist` lets you supply a real one at
+run time, but none ships with the repo yet. See the roadmap in the repo
 history for what's planned next.
 
 ## License
