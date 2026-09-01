@@ -55,6 +55,31 @@ Blank lines and lines starting with `#` are skipped, and the file is read
 the same way the input list is — line by line, so a large wordlist doesn't
 get loaded into memory all at once either.
 
+## Config
+
+By default all five checks run with their built-in thresholds. Point
+`-config` at a JSON file to turn checks off or tune the ones that take a
+threshold:
+
+```json
+{
+  "sequential-run": { "enabled": false },
+  "min-length": { "threshold": 10 },
+  "repeated-run": { "threshold": 4 }
+}
+```
+
+Every key is optional and defaults to the built-in behavior if omitted.
+`enabled: false` drops the check entirely; `threshold` replaces the
+built-in minimum length, character-class count, or run length depending on
+the rule. `common-password` only takes `enabled` — use `-wordlist` to
+change what it matches against. An unrecognized rule name is an error, so a
+typo in the config file doesn't silently disable the wrong check.
+
+```
+$ ./passlint -config passlint.json leaked-list.txt
+```
+
 ## Design note
 
 `Lint` reads its input with a `bufio.Scanner`, one line at a time, and calls
@@ -68,8 +93,9 @@ without blowing up memory.
 
 Early. The rule set is small and the built-in common-password list is a
 stub of maybe twenty entries; `-wordlist` lets you supply a real one at
-run time, but none ships with the repo yet. See the roadmap in the repo
-history for what's planned next.
+run time, but none ships with the repo yet. Output is plain text only —
+no machine-readable format yet, so it isn't CI-friendly beyond the exit
+code. See the roadmap in the repo history for what's planned next.
 
 ## License
 

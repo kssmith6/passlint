@@ -8,11 +8,12 @@ import (
 )
 
 func main() {
-	var wordlistPath string
+	var wordlistPath, configPath string
 	flag.StringVar(&wordlistPath, "wordlist", "", "path to an external common-password wordlist, one entry per line")
+	flag.StringVar(&configPath, "config", "", "path to a JSON config file enabling/disabling rules and setting thresholds")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: passlint [-wordlist file] <file> [file...]")
-		fmt.Fprintln(os.Stderr, "       passlint [-wordlist file] -    (read from stdin)")
+		fmt.Fprintln(os.Stderr, "usage: passlint [-wordlist file] [-config file] <file> [file...]")
+		fmt.Fprintln(os.Stderr, "       passlint [-wordlist file] [-config file] -    (read from stdin)")
 	}
 	flag.Parse()
 
@@ -22,14 +23,10 @@ func main() {
 		os.Exit(2)
 	}
 
-	rules := DefaultRules
-	if wordlistPath != "" {
-		var err error
-		rules, err = RulesWithWordlist(wordlistPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "passlint: %v\n", err)
-			os.Exit(1)
-		}
+	rules, err := BuildRules(configPath, wordlistPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "passlint: %v\n", err)
+		os.Exit(1)
 	}
 
 	anyFindings := false

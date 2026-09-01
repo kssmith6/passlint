@@ -9,7 +9,7 @@ import (
 )
 
 // loadWordlist reads a file of one password per line and returns the set of
-// entries, lower-cased so lookups line up with how commonPasswordRule
+// entries, lower-cased so lookups line up with how commonPasswordCheck
 // compares. Blank lines and lines starting with # are skipped so a wordlist
 // can carry a comment about its source without being treated as an entry.
 func loadWordlist(path string) (map[string]struct{}, error) {
