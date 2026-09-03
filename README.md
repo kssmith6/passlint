@@ -33,6 +33,19 @@ $ cat leaked-list.txt | ./passlint -
 Exit code is `1` if any finding was reported, `0` otherwise, so it can gate
 a CI job.
 
+Pass `-json` to get one JSON object per finding, newline-delimited, instead
+of the plain-text line above:
+
+```
+$ ./passlint -json testdata/example.txt
+{"file":"testdata/example.txt","line":1,"rule":"min-length","message":"only 6 characters (minimum 8)"}
+{"file":"testdata/example.txt","line":2,"rule":"common-password","message":"matches a well-known common password"}
+```
+
+Findings are still written as soon as they're found rather than collected
+into a JSON array, so `-json` doesn't give up the streaming behavior described
+below.
+
 ## Checks
 
 - `min-length` — fewer than 8 characters.
@@ -93,9 +106,9 @@ without blowing up memory.
 
 Early. The rule set is small and the built-in common-password list is a
 stub of maybe twenty entries; `-wordlist` lets you supply a real one at
-run time, but none ships with the repo yet. Output is plain text only —
-no machine-readable format yet, so it isn't CI-friendly beyond the exit
-code. See the roadmap in the repo history for what's planned next.
+run time, but none ships with the repo yet. No keyboard-walk or
+entropy-based checks yet, and there are no unit tests. See the roadmap
+in the repo history for what's planned next.
 
 ## License
 
