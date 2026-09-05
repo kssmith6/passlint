@@ -14,6 +14,7 @@ const (
 	minCharClasses       = 3
 	repeatedRunThreshold = 3
 	sequentialRunLength  = 3
+	keyboardWalkLength   = 4
 )
 
 // commonPasswords is a small seed list of passwords that show up at the top
@@ -70,6 +71,12 @@ func ruleSpecs(extra map[string]struct{}) []ruleSpec {
 			enabledByDefault: true,
 			defaultThreshold: sequentialRunLength,
 			build:            sequentialRunCheck,
+		},
+		{
+			name:             "keyboard-walk",
+			enabledByDefault: true,
+			defaultThreshold: keyboardWalkLength,
+			build:            keyboardWalkCheck,
 		},
 	}
 }
@@ -251,4 +258,61 @@ func sequentialRunCheck(threshold int) func(pw string) (bool, string) {
 
 func isSequenceable(r rune) bool {
 	return unicode.IsDigit(r) || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
+// keyboardRows lists the rows of a standard US QWERTY layout, unshifted, in
+// left-to-right order. keyPosition maps every rune on the board to its row
+// and column so keyboardWalkCheck can tell "asdf" (same row, adjacent keys)
+// from a string that merely looks similar.
+var keyboardRows = []string{
+	"`1234567890-=",
+	"qwertyuiop[]\\",
+	"asdfghjkl;'",
+	"zxcvbnm,./",
+}
+
+type keyPos struct{ row, col int }
+
+var keyPosition = func() map[rune]keyPos {
+	pos := make(map[rune]keyPos)
+	for row, keys := range keyboardRows {
+		for col, r := range keys {
+			pos[r] = keyPos{row: row, col: col}
+		}
+	}
+	return pos
+}()
+
+// keyboardWalkCheck flags threshold or more keys in a row that are physically
+// adjacent on the keyboard, walked left-to-right ("asdf") or right-to-left
+// ("fdsa"), the way sequentialRunCheck flags alphabetic or numeric runs.
+func keyboardWalkCheck(threshold int) func(pw string) (bool, string) {
+	if threshold < 2 {
+		threshold = 2
+	}
+	return func(pw string) (bool, string) {
+		runes := []rune(strings.ToLower(pw))
+		for i := threshold - 1; i < len(runes); i++ {
+			asc, desc := true, true
+			for j := i - threshold + 1; j < i; j++ {
+				p1, ok1 := keyPosition[runes[j]]
+				p2, ok2 := keyPosition[runes[j+1]]
+				if !ok1 || !ok2 || p1.row != p2.row {
+					asc, desc = false, false
+					break
+				}
+				if p2.col-p1.col != 1 {
+					asc = false
+				}
+				if p1.col-p2.col != 1 {
+					desc = false
+				}
+			}
+			window := string(runes[i-threshold+1 : i+1])
+			if asc || desc {
+				return true, fmt.Sprintf("contains a keyboard-walk sequence %q (adjacent keys on a QWERTY row)", window)
+			}
+		}
+		return false, ""
+	}
 }

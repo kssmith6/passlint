@@ -53,6 +53,8 @@ below.
 - `common-password` — matches a small built-in list of known weak passwords.
 - `repeated-run` — the same character three or more times in a row.
 - `sequential-run` — an ascending or descending run like `abc` or `123`.
+- `keyboard-walk` — four or more keys adjacent on a QWERTY row, like `asdf`
+  or its reverse `fdsa`.
 
 ## Wordlists
 
@@ -106,9 +108,9 @@ without blowing up memory.
 
 Early. The rule set is small and the built-in common-password list is a
 stub of maybe twenty entries; `-wordlist` lets you supply a real one at
-run time, but none ships with the repo yet. No keyboard-walk or
-entropy-based checks yet, and there are no unit tests. See the roadmap
-in the repo history for what's planned next.
+run time, but none ships with the repo yet. No entropy-based scoring yet,
+and there are no unit tests. See the roadmap in the repo history for
+what's planned next.
 
 ## License
 
