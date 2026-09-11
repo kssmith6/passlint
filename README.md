@@ -55,6 +55,12 @@ below.
 - `sequential-run` — an ascending or descending run like `abc` or `123`.
 - `keyboard-walk` — four or more keys adjacent on a QWERTY row, like `asdf`
   or its reverse `fdsa`.
+- `entropy` — fewer than 28 bits of entropy, estimated as
+  `length * log2(alphabet size)` where the alphabet is the set of character
+  classes (upper, lower, digit, symbol) actually used. This is a coarser,
+  continuous complement to the rule-counting checks above: a password can
+  clear every individual rule and still be short enough, or narrow enough
+  in alphabet, to have few bits.
 
 ## Wordlists
 
@@ -72,7 +78,7 @@ get loaded into memory all at once either.
 
 ## Config
 
-By default all five checks run with their built-in thresholds. Point
+By default all six checks run with their built-in thresholds. Point
 `-config` at a JSON file to turn checks off or tune the ones that take a
 threshold:
 
@@ -108,9 +114,8 @@ without blowing up memory.
 
 Early. The rule set is small and the built-in common-password list is a
 stub of maybe twenty entries; `-wordlist` lets you supply a real one at
-run time, but none ships with the repo yet. No entropy-based scoring yet,
-and there are no unit tests. See the roadmap in the repo history for
-what's planned next.
+run time, but none ships with the repo yet. There are no unit tests yet.
+See the roadmap in the repo history for what's planned next.
 
 ## License
 

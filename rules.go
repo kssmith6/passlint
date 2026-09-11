@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -15,6 +16,7 @@ const (
 	repeatedRunThreshold = 3
 	sequentialRunLength  = 3
 	keyboardWalkLength   = 4
+	minEntropyBits       = 28
 )
 
 // commonPasswords is a small seed list of passwords that show up at the top
@@ -77,6 +79,12 @@ func ruleSpecs(extra map[string]struct{}) []ruleSpec {
 			enabledByDefault: true,
 			defaultThreshold: keyboardWalkLength,
 			build:            keyboardWalkCheck,
+		},
+		{
+			name:             "entropy",
+			enabledByDefault: true,
+			defaultThreshold: minEntropyBits,
+			build:            entropyCheck,
 		},
 	}
 }
@@ -154,22 +162,28 @@ func minLengthCheck(minLen int) func(pw string) (bool, string) {
 	}
 }
 
+// charClasses reports which of the four character classes appear anywhere
+// in pw. Both charVarietyCheck and entropyCheck key their estimate off the
+// same classes, so they share this rather than scanning pw twice.
+func charClasses(pw string) (hasUpper, hasLower, hasDigit, hasSymbol bool) {
+	for _, r := range pw {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		default:
+			hasSymbol = true
+		}
+	}
+	return
+}
+
 func charVarietyCheck(minClasses int) func(pw string) (bool, string) {
 	return func(pw string) (bool, string) {
-		var hasUpper, hasLower, hasDigit, hasSymbol bool
-		for _, r := range pw {
-			switch {
-			case unicode.IsUpper(r):
-				hasUpper = true
-			case unicode.IsLower(r):
-				hasLower = true
-			case unicode.IsDigit(r):
-				hasDigit = true
-			default:
-				hasSymbol = true
-			}
-		}
-
+		hasUpper, hasLower, hasDigit, hasSymbol := charClasses(pw)
 		classes := 0
 		for _, present := range []bool{hasUpper, hasLower, hasDigit, hasSymbol} {
 			if present {
@@ -178,6 +192,55 @@ func charVarietyCheck(minClasses int) func(pw string) (bool, string) {
 		}
 		if classes < minClasses {
 			return true, fmt.Sprintf("uses only %d of 4 character classes (upper, lower, digit, symbol); need at least %d", classes, minClasses)
+		}
+		return false, ""
+	}
+}
+
+// symbolPoolSize is the number of non-alphanumeric characters reachable
+// from a standard US keyboard without modifier tricks. It's an estimate,
+// not a count of any specific password's actual symbols, which is exactly
+// the point of a charset-based entropy check: it scores against what an
+// attacker has to search, not what happens to appear in this one password.
+const symbolPoolSize = 33
+
+// entropyCheck estimates a password's entropy as log2(poolSize) * length,
+// where poolSize is the size of the character alphabet implied by which
+// classes are present (lower, upper, digit, symbol). This is the same
+// worst-case assumption a brute-force cracker has to make - it doesn't know
+// a password only uses digits until it's tried the letters too - so it's a
+// reasonable complement to the rule-counting checks above: a password can
+// pass every individual rule and still have relatively few bits, if it's
+// short, or fail min-length and still be flagged here again for the same
+// underlying reason.
+func entropyCheck(minBits int) func(pw string) (bool, string) {
+	return func(pw string) (bool, string) {
+		n := utf8.RuneCountInString(pw)
+		if n == 0 {
+			return false, ""
+		}
+
+		hasUpper, hasLower, hasDigit, hasSymbol := charClasses(pw)
+		pool := 0
+		if hasLower {
+			pool += 26
+		}
+		if hasUpper {
+			pool += 26
+		}
+		if hasDigit {
+			pool += 10
+		}
+		if hasSymbol {
+			pool += symbolPoolSize
+		}
+		if pool == 0 {
+			return false, ""
+		}
+
+		bits := float64(n) * math.Log2(float64(pool))
+		if bits < float64(minBits) {
+			return true, fmt.Sprintf("only about %.0f bits of entropy (minimum %d) for a %d-character alphabet", bits, minBits, pool)
 		}
 		return false, ""
 	}
